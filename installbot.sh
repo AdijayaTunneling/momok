@@ -8,7 +8,7 @@ IFS=$'\n\t'
 ######################
 # CONFIG - EDIT HERE
 ######################
-BASE_URL="${BASE_URL:-http://bot2.bandarvpn.cloud/}"   # GitHub Pages CNAME
+BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/AdijayaTunneling/momok/main/}"   # GitHub Pages CNAME
 FILES=( "agent.php" "addsshbot" "addwsbot" "addvlessbot" "addtrbot" "trialsshbot" "trialwsbot" "countall.py" )
 WEB_ROOT="${WEB_ROOT:-/var/www/html}"
 SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/sbin}"
