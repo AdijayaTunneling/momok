@@ -1,0 +1,27 @@
+#!/bin/bash
+# addtrbot - wrapper untuk skrip addtr bawaan VPS
+# Usage: addtrbot <username> <quota_GB> <iplimit> <exp_days>
+
+set -euo pipefail
+
+user=${1:-}
+quota=${2:-0}
+iplimit=${3:-1}
+exp_days=${4:-1}
+
+if [[ -z "$user" ]]; then
+  echo "Usage: $0 <username> <quota_GB> <iplimit> <exp_days>"
+  exit 2
+fi
+
+# jalankan skrip addtr asli (non-interaktif)
+raw=$(printf "%s\n%s\n%s\n" "$user" "$exp_days" "$quota" | /usr/local/sbin/addtr 2>&1)
+
+# ambil link trojan:// pertama
+link=$(echo "$raw" | grep -m1 '^trojan://')
+
+echo "===OUTPUT1==="
+echo "$raw"
+echo "===OUTPUT2==="
+echo "$link"
+

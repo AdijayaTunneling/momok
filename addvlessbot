@@ -1,0 +1,27 @@
+#!/bin/bash
+# addvlessbot - wrapper untuk skrip addvless bawaan VPS
+# Usage: addvlessbot <username> <quota_GB> <iplimit> <exp_days>
+
+set -euo pipefail
+
+user=${1:-}
+quota=${2:-0}
+iplimit=${3:-1}
+exp_days=${4:-1}
+
+if [[ -z "$user" ]]; then
+  echo "Usage: $0 <username> <quota_GB> <iplimit> <exp_days>"
+  exit 2
+fi
+
+# jalankan skrip addvless asli (non-interaktif)
+raw=$(printf "%s\n%s\n%s\n" "$user" "$exp_days" "$quota" "$iplimit" | /usr/local/sbin/addvless 2>&1)
+
+# ambil link TLS (baris pertama yg mulai dengan vless://)
+link=$(echo "$raw" | grep -m1 '^vless://')
+
+echo "===OUTPUT1==="
+echo "$raw"
+echo "===OUTPUT2==="
+echo "$link"
+

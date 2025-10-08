@@ -1,0 +1,101 @@
+#!/bin/bash
+# trialsshbot — Non-interaktif trial SSH untuk bot
+
+set -euo pipefail
+
+# Konfigurasi Telegram (opsional, jika /etc/bot/.bot.db tersedia)
+CHATID="$(grep -E "^#bot# " "/etc/bot/.bot.db" 2>/dev/null | cut -d ' ' -f 3 || true)"
+KEY="$(grep -E "^#bot# " "/etc/bot/.bot.db"  2>/dev/null | cut -d ' ' -f 2 || true)"
+TIME="10"
+URL="https://api.telegram.org/bot${KEY}/sendMessage"
+
+# Konfigurasi server
+domain="$(cat /etc/xray/domain)"
+IP="$(curl -sS ipv4.icanhazip.com)"
+rand=$(shuf -i 1000-9999 -n 1)
+Login="${LOGIN_OVERRIDE:-Trial-${rand}}"
+Pass="1"
+minutes="${MINUTES:-30}"   # durasi trial runtime (hapus user setelah X menit)
+masaaktif="${DAYS:-1}"     # expired account 1 hari (di DB system)
+
+# Buat user SSH
+useradd -e "$(date -d "${masaaktif} days" +"%Y-%m-%d")" -s /bin/false -M "$Login"
+echo -e "${Pass}\n${Pass}\n" | passwd "$Login" &> /dev/null || true
+
+# Catat ke DB internal jika dipakai
+mkdir -p /etc/ssh
+if ! grep -qw "$Login" /etc/ssh/.ssh.db 2>/dev/null; then
+  echo "### ${Login} " >> /etc/ssh/.ssh.db
+fi
+
+# Tulis file info untuk klien
+cat > "/var/www/html/ssh-${Login}.txt" <<-END
+◇━━━━━━━━━━━━━━━━━◇
+Format SSH OVPN Account
+◇━━━━━━━━━━━━━━━━━◇
+Username         : ${Login}
+Password         : ${Pass}
+Berakhir (runtime): ${minutes} Menit
+◇━━━━━━━━━━━━━━━━━◇
+IP               : ${IP}
+Host             : ${domain}
+Port OpenSSH     : 22
+Port Dropbear    : 443, 109, 143
+Port SSH UDP     : 1-65535
+Port SSH WS      : 80, 8080, 8081-9999
+Port SSH SSL WS  : 443
+Port SSL/TLS     : 400-900
+OVPN Download    : https://${domain}:81/
+◇━━━━━━━━━━━━━━━━━◇
+END
+
+# Jadwalkan penghapusan user setelah runtime trial
+echo "userdel -f '${Login}'" | at now + ${minutes} minutes &> /dev/null || true
+
+# Cetak output untuk agent.php
+echo "===OUTPUT1==="
+echo "⚪══════════════════⚪"
+echo "   ✦ Trial SSH Success ✦"
+echo "⚪══════════════════⚪"
+echo "📡 Hostname : ${domain}"
+echo "👤 Username : ${Login}"
+echo "🔑 Password : ${Pass}"
+echo "🌐 IPServer : ${IP}"
+echo "⏳ Runtime  : ${minutes} Menit"
+echo "⚪══════════════════⚪"
+echo "🔗 TLS  : ${domain}:443@${Login}:${Pass}"
+echo "🔗 nTLS : ${domain}:80@${Login}:${Pass}"
+echo "🔗 UDP  : ${domain}:1-65535@${Login}:${Pass}"
+echo "⚪══════════════════⚪"
+echo "📄 Info lengkap: https://${domain}:81/ssh-${Login}.txt"
+echo "⚪══════════════════⚪"
+echo "===OUTPUT2==="
+echo "${domain}:443@${Login}:${Pass}"
+
+# Notifikasi Telegram (jika KEY/CHATID tersedia)
+if [[ -n "${KEY}" && -n "${CHATID}" ]]; then
+  TEXT=$(
+    cat <<MSG
+⚪══════════════════⚪
+    ✦Trial SSH Success✦
+⚪══════════════════⚪
+<code>✦Hostname   :</code> <code>${domain}</code>
+<code>✦Username   :</code> <code>${Login}</code>
+<code>✦Password   :</code> <code>${Pass}</code>
+<code>✦IPServer   :</code> <code>${IP}</code>
+⚪══════════════════⚪
+✦<code>Expired ${minutes} Menit (runtime)</code>
+⚪══════════════════⚪
+<code>✦TLS</code> <code>${domain}:443@${Login}:${Pass}</code>
+<code>✦nTLS</code> <code>${domain}:80@${Login}:${Pass}</code>
+<code>✦UDP</code> <code>${domain}:1-65535@${Login}:${Pass}</code>
+⚪══════════════════⚪
+✦<code>https://${domain}:81/ssh-${Login}.txt</code>
+⚪══════════════════⚪
+MSG
+  )
+  curl -s --max-time "${TIME}" -d "chat_id=${CHATID}&disable_web_page_preview=1&text=${TEXT}&parse_mode=html" "${URL}" >/dev/null || true
+fi
+
+exit 0
+

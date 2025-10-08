@@ -1,0 +1,158 @@
+#!/bin/bash
+# trialwsbot — Non-interaktif trial VMess WS untuk bot
+
+set -euo pipefail
+
+# Telegram (opsional)
+CHATID="$(grep -E "^#bot# " "/etc/bot/.bot.db" 2>/dev/null | cut -d ' ' -f 3 || true)"
+KEY="$(grep -E "^#bot# " "/etc/bot/.bot.db"  2>/dev/null | cut -d ' ' -f 2 || true)"
+TIME="10"
+URL="https://api.telegram.org/bot${KEY}/sendMessage"
+
+# Server
+domain="$(cat /etc/xray/domain)"
+IP="$(curl -sS ipv4.icanhazip.com)"
+rand=$(shuf -i 1000-9999 -n 1)
+user="${LOGIN_OVERRIDE:-Trial-VM${rand}}"
+uuid="$(cat /proc/sys/kernel/random/uuid)"
+masaaktif="${DAYS:-1}"     # 1 hari di xray config (masa akun)
+minutes="${MINUTES:-60}"   # runtime trial (jadwal penutupan layanan)
+
+# Tambahkan user ke config xray (WS + gRPC)
+exp="$(date -d "${masaaktif} days" +"%Y-%m-%d")"
+sed -i '/#vmess$/a\### '"$user $exp"'\
+},{"id": "'""$uuid""'","alterId": 0,"email": "'""$user""'"' /etc/xray/config.json
+sed -i '/#vmessgrpc$/a\### '"$user $exp"'\
+},{"id": "'""$uuid""'","alterId": 0,"email": "'""$user""'"' /etc/xray/config.json
+
+# Buat profil JSON vmess
+asu=$(cat <<EOF
+{"v":"2","ps":"${user}","add":"${domain}","port":"443","id":"${uuid}","aid":"0","net":"ws","path":"/vmess","type":"none","host":"${domain}","tls":"tls"}
+EOF
+)
+ask=$(cat <<EOF
+{"v":"2","ps":"${user}","add":"${domain}","port":"80","id":"${uuid}","aid":"0","net":"ws","path":"/vmess","type":"none","host":"${domain}","tls":"none"}
+EOF
+)
+grpc=$(cat <<EOF
+{"v":"2","ps":"${user}","add":"${domain}","port":"443","id":"${uuid}","aid":"0","net":"grpc","path":"vmess-grpc","type":"none","host":"${domain}","tls":"tls"}
+EOF
+)
+
+vmesslink1="vmess://$(echo -n "$asu"  | base64 -w 0)"
+vmesslink2="vmess://$(echo -n "$ask"  | base64 -w 0)"
+vmesslink3="vmess://$(echo -n "$grpc" | base64 -w 0)"
+
+# Restart layanan
+systemctl restart xray > /dev/null 2>&1 || true
+service cron restart > /dev/null 2>&1 || true
+
+# Tulis file OpenClash/YAML
+cat > "/var/www/html/vmess-${user}.txt" <<-END
+# VMESS CONFIG - ${user}
+
+# WS TLS
+- name: Vmess-${user}-WS TLS
+  type: vmess
+  server: ${domain}
+  port: 443
+  uuid: ${uuid}
+  alterId: 0
+  cipher: auto
+  udp: true
+  tls: true
+  skip-cert-verify: true
+  servername: ${domain}
+  network: ws
+  ws-opts:
+    path: /vmess
+    headers:
+      Host: ${domain}
+
+# WS Non TLS
+- name: Vmess-${user}-WS Non TLS
+  type: vmess
+  server: ${domain}
+  port: 80
+  uuid: ${uuid}
+  alterId: 0
+  cipher: auto
+  udp: true
+  tls: false
+  network: ws
+  ws-opts:
+    path: /vmess
+    headers:
+      Host: ${domain}
+
+# gRPC
+- name: Vmess-${user}-gRPC
+  server: ${domain}
+  port: 443
+  type: vmess
+  uuid: ${uuid}
+  alterId: 0
+  cipher: auto
+  network: grpc
+  tls: true
+  servername: ${domain}
+  skip-cert-verify: true
+  grpc-opts:
+    grpc-service-name: vmess-grpc
+
+# Links
+TLS     : ${vmesslink1}
+NonTLS  : ${vmesslink2}
+gRPC    : ${vmesslink3}
+END
+
+# Jadwalkan penutupan runtime trial
+echo "tunnel vmess ${user}" | at now + ${minutes} minutes &> /dev/null || true
+
+# Cetak output untuk agent.php
+echo "===OUTPUT1==="
+echo "⚪══════════════════⚪"
+echo "   ✦ Trial VMESS Success ✦"
+echo "⚪══════════════════⚪"
+echo "📡 Hostname : ${domain}"
+echo "👤 Username : ${user}"
+echo "🆔 UUID     : ${uuid}"
+echo "🌐 IPServer : ${IP}"
+echo "⏳ Runtime  : ${minutes} Menit"
+echo "⚪══════════════════⚪"
+echo "🔗 TLS     : ${vmesslink1}"
+echo "🔗 nTLS    : ${vmesslink2}"
+echo "🔗 gRPC    : ${vmesslink3}"
+echo "⚪══════════════════⚪"
+echo "📄 Info lengkap: https://${domain}:81/vmess-${user}.txt"
+echo "⚪══════════════════⚪"
+echo "===OUTPUT2==="
+echo "${vmesslink1}"
+
+# Notifikasi Telegram (opsional)
+if [[ -n "${KEY}" && -n "${CHATID}" ]]; then
+  TEXT=$(
+    cat <<MSG
+⚪══════════════════⚪
+✦Trial VMESS Success✦
+⚪══════════════════⚪
+<code>Hostname :</code> <code>${domain}</code>
+<code>Username :</code> <code>${user}</code>
+<code>UUID     :</code> <code>${uuid}</code>
+<code>IPServer :</code> <code>${IP}</code>
+⚪══════════════════⚪
+✦<code>Expired ${minutes} Menit (runtime)</code>
+⚪══════════════════⚪
+✦TLS <code>${vmesslink1}</code>
+✦nTLS <code>${vmesslink2}</code>
+✦gRPC <code>${vmesslink3}</code>
+⚪══════════════════⚪
+✦<code>https://${domain}:81/vmess-${user}.txt</code>
+⚪══════════════════⚪
+MSG
+  )
+  curl -s --max-time "${TIME}" -d "chat_id=${CHATID}&disable_web_page_preview=1&text=${TEXT}&parse_mode=html" "${URL}" >/dev/null || true
+fi
+
+exit 0
+

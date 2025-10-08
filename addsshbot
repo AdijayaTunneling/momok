@@ -1,0 +1,103 @@
+#!/bin/bash
+# addsshbot: versi non-interaktif untuk API Bot + Telegram notif
+
+Login=$1
+Pass=$2
+iplimit=$3
+masaaktif=$4
+
+if [[ -z "$Login" || -z "$Pass" || -z "$iplimit" || -z "$masaaktif" ]]; then
+  echo "Usage: $0 <username> <password> <iplimit> <expired_days>"
+  exit 1
+fi
+
+# --- Info Server ---
+IP=$(curl -s ipv4.icanhazip.com)
+domain=$(cat /etc/xray/domain 2>/dev/null || echo "$IP")
+hariini=$(date +"%Y-%m-%d")
+expe=$(date -d "$masaaktif days" +"%Y-%m-%d")
+
+# --- Buat direktori ---
+sudo mkdir -p /etc/kyt/limit/ssh/ip
+sudo mkdir -p /etc/ssh
+
+# --- Simpan Limit IP ---
+echo "$iplimit" | sudo tee /etc/kyt/limit/ssh/ip/$Login >/dev/null
+
+# --- Buat User SSH ---
+sudo /usr/sbin/useradd -e "$expe" -s /bin/false -M $Login 2>/dev/null
+echo -e "$Pass\n$Pass\n" | sudo passwd $Login &>/dev/null
+
+# --- Simpan ke database ---
+sudo sed -i "/\b${Login}\b/d" /etc/ssh/.ssh.db
+echo "#ssh# ${Login} ${Pass} 0 ${iplimit} ${expe}" | sudo tee -a /etc/ssh/.ssh.db >/dev/null
+
+# --- Notifikasi Telegram ke Admin ---
+CHATID=$(grep -E "^#bot# " "/etc/bot/.bot.db" | cut -d ' ' -f 3)
+KEY=$(grep -E "^#bot# " "/etc/bot/.bot.db" | cut -d ' ' -f 2)
+URL="https://api.telegram.org/bot$KEY/sendMessage"
+
+TEXT="
+⚪══════════════════⚪
+   Create SSH Success
+⚪══════════════════⚪
+ Terimakasih telah berlangganan
+ di store kami..!!
+ Harap gunakan dengan bijak
+ Happy surfing..!!
+⚪══════════════════⚪
+<code> ✦ Hostname :</code> <code>$domain</code>
+<code> ✦ Username :</code> <code>$Login</code>
+<code> ✦ Password :</code> <code>$Pass</code>
+<code> ✦ Limit IP :</code> <code>$iplimit User</code>
+<code> ✦ Port : 80,443,22</code>
+<code> ✦ SSH CUSTOM :</code>
+<code>$domain:80@$Login:$Pass</code>
+⚪══════════════════⚪
+<code> ✦ Expired : $expe</code>
+⚪══════════════════⚪"
+
+if [[ -n "$CHATID" && -n "$KEY" ]]; then
+  curl -s --max-time 10 \
+    -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" \
+    $URL >/dev/null
+fi
+
+# --- Notifikasi Transaksi ke Channel ---
+BOT_TOKEN_TRX="8220003675:AAH3Kc8DpW-pklkQZ3FJ7Eei19lfUvj7ofU"
+CHAT_ID_TRX="@Free_Config01"   # channel username atau chat_id
+TRX_ID=$(date +%s%N | md5sum | head -c 12)
+
+TRX_MSG="SSH CREATED SUCCESS
+⚪══════════════════⚪
+✦ CITY : $(curl -s ipinfo.io/city )
+✦ ISP : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )
+✦ DETAIL : trx SSH
+✦ USER  : ${Login}
+✦ LIMIT IP : ${iplimit} PENGGUNA
+✦ BERLAKU : ${masaaktif} HARI
+✦ EXPIRED : Tgl ${expe}
+⚪══════════════════⚪
+#TRX ${TRX_ID}"
+
+curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
+     -d "chat_id=${CHAT_ID_TRX}" \
+     -d "text=${TRX_MSG}" >/dev/null
+
+echo "✅ addsshbot: Notifikasi transaksi terkirim. TRX=${TRX_ID} (channel=${CHAT_ID_TRX})"
+
+# --- Output ke WhatsApp (2 pesan) ---
+echo "===OUTPUT1==="
+echo "⚪══════════════════⚪"
+echo   "📡 ISP : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )"
+echo   "🌐 Host  : $domain"
+echo   "👤 User : $Login"
+echo   "🔑 Pass : $Pass"
+echo   "🔗 Port     : 80, 443, 22"
+echo   "🎭 Limit IP : $iplimit"
+echo   "📅 Dibuat   : $hariini"
+echo   "⏳ Expired  : $expe"
+echo "⚪══════════════════⚪"
+echo "===OUTPUT2==="
+echo "${domain}:80@${Login}:${Pass}"
+

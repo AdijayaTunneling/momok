@@ -1,0 +1,175 @@
+#!/bin/bash
+# addwsbot - safe insert vmess user (#vmess & #vmessgrpc)
+# Usage: addwsbot <username> <quota_GB> <iplimit> <exp_days>
+set -euo pipefail
+
+username_raw=${1:-}
+quota=${2:-0}
+iplimit=${3:-1}
+exp_days=${4:-1}
+
+if [[ -z "$username_raw" ]]; then
+  echo "Usage: $0 <username> <quota_GB> <iplimit> <exp_days>"
+  exit 2
+fi
+
+# sanitize username
+username=$(printf "%s" "$username_raw" | tr -d '"\\')
+exp_date=$(date -d "$exp_days days" +"%Y-%m-%d" 2>/dev/null || date +"%Y-%m-%d")
+uuid=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
+
+config_file="/etc/xray/config.json"
+
+if [[ ! -f "$config_file" ]]; then
+  echo "ERROR: $config_file tidak ditemukan"
+  exit 3
+fi
+
+# backup
+bak="${config_file}.bak.$(date +%s)"
+cp -a "$config_file" "$bak" || { echo "ERROR: gagal backup $config_file"; exit 4; }
+
+insert_after_marker_sed() {
+  local marker="$1"
+  if ! grep -qF "$marker" "$config_file"; then
+    echo "marker '$marker' tidak ditemukan — skip"
+    return 0
+  fi
+
+  if sed -n "/$marker/,/\]/p" "$config_file" | grep -q "\"email\": \"$username\""; then
+    echo "user '$username' sudah ada di $marker — skip"
+    return 0
+  fi
+
+  # Tambahkan user → TANPA tanda } di ujung (sesuai gaya bawaan)
+  sed -i '/'"$marker"'$/a\### '"$username $exp_date"'\
+},{"id": "'"$uuid"'","alterId": 0,"email": "'"$username"'"' "$config_file"
+}
+
+# hanya markers yang benar-benar ada
+for m in "#vmess" "#vmessgrpc"; do
+  insert_after_marker_sed "$m"
+done
+
+# Validasi config
+if command -v xray >/dev/null 2>&1; then
+  if ! xray run -test -config "$config_file" >/dev/null 2>&1; then
+    echo "ERROR: config.json invalid -> rollback ke $bak"
+    mv -f "$bak" "$config_file"
+    exit 6
+  fi
+  echo "xray test ok"
+else
+  echo "WARNING: xray binary not found, skip test"
+fi
+
+# restart xray
+systemctl restart xray || echo "WARNING: gagal restart xray"
+
+# buat link vmess
+domain=$(cat /etc/xray/domain 2>/dev/null || echo "yourdomain.com")
+port_tls=443
+port_ntls=80
+port_grpc=443
+
+json_base_tls=$(printf '{"v":"2","ps":"%s-tls","add":"%s","port":"%s","id":"%s","aid":"0","net":"ws","type":"none","host":"%s","path":"/vmess","tls":"tls"}' \
+  "$username" "ava.game.naver.com" "$port_tls" "$uuid" "ava.game.naver.com.$domain" | base64 -w0)
+
+json_base_ntls=$(printf '{"v":"2","ps":"%s-ntls","add":"%s","port":"%s","id":"%s","aid":"0","net":"ws","type":"none","host":"%s","path":"/vmess","tls":"none"}' \
+  "$username" "$domain" "$port_ntls" "$uuid" "$domain" | base64 -w0)
+
+json_base_grpc=$(printf '{"v":"2","ps":"%s-tls","add":"%s","port":"%s","id":"%s","aid":"0","net":"ws","type":"none","host":"%s","path":"/vmess","tls":"tls"}' \
+  "$username" "support.zoom.us" "$port_grpc" "$uuid" "support.zoom.us.$domain" | base64 -w0)
+
+link_tls="vmess://$json_base_tls"
+link_ntls="vmess://$json_base_ntls"
+link_grpc="vmess://$json_base_grpc"
+
+# // Get Bot (notif detail akun ke admin)
+CHATID=$(grep -E "^#bot# " "/etc/bot/.bot.db" | cut -d ' ' -f 3)
+KEY=$(grep -E "^#bot# " "/etc/bot/.bot.db" | cut -d ' ' -f 2)
+URL="https://api.telegram.org/bot$KEY/sendMessage"
+
+TEXT="
+⚪══════════════════⚪
+    Create VMESS Success
+⚪══════════════════⚪
+ Terimakasih telah berlangganan
+ di store kami..!!
+ Harap gunakan dengan bijak
+ Happy surfing..!!
+⚪══════════════════⚪
+<code> ✦ Hostname   :</code> <code>$domain</code>
+<code> ✦ Username   :</code> <code>$username</code>
+<code> ✦ UUID       :</code> <code>$uuid</code>
+<code> ✦ Limit IP   :</code> <code>$iplimit User</code>
+<code> ✦ Limit Quota:</code> <code>$quota GB</code>
+<code> ✦ Port TLS   :</code> <code>400-900</code>
+<code> ✦ Port nTLS  :</code> <code>80, 8080</code>
+<code> ✦ Path       :</code> <code>/Multi-Path</code>
+<code> ✦ Path WS    :</code> <code>/vmess</code>
+<code> ✦ Path gRPC  :</code> <code>vmess-grpc</code>
+⚪══════════════════⚪
+<code> ✦ Expired : $exp_date</code>
+⚪══════════════════⚪
+ ✦ TLS AVA <code>${link_tls}</code>
+⚪══════════════════⚪
+ ✦ nTLS <code>${link_ntls}</code>
+⚪══════════════════⚪
+ ✦ TLS SUPPORT <code>${link_grpc}</code>
+⚪══════════════════⚪
+ ✦ <code>https://${domain}:81/vmess-$username.txt</code>
+⚪══════════════════⚪"
+
+if [[ -n "$CHATID" && -n "$KEY" ]]; then
+  curl -s --max-time 10 \
+    -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" \
+    $URL >/dev/null
+fi
+
+# ==========================
+# Notifikasi Transaksi (Channel)
+# ==========================
+BOT_TOKEN_TRX="8220003675:AAH3Kc8DpW-pklkQZ3FJ7Eei19lfUvj7ofU"
+CHAT_ID_TRX="@Free_Config01"   # channel username atau chat_id
+TRX_ID=$(date +%s%N | md5sum | head -c 12)
+
+TRX_MSG="VMESS CREATED SUCCESS
+⚪══════════════════⚪
+✦ CITY    : $(curl -s ipinfo.io/city )
+✦ ISP     : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )
+✦ DETAIL  : trx VMESS
+✦ USER    : ${username}
+✦ LIMIT IP: ${iplimit} PENGGUNA
+✦ QUOTA   : ${quota} GB
+✦ BERLAKU : ${exp_days} HARI
+✦ EXPIRED : Tgl ${exp_date}
+⚪══════════════════⚪
+#TRX ${TRX_ID}"
+
+curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
+     -d "chat_id=${CHAT_ID_TRX}" \
+     -d "text=${TRX_MSG}" >/dev/null
+
+# ==========================
+# Output ke terminal
+# ==========================
+echo "===OUTPUT1==="
+echo "⚪══════════════════⚪"
+echo   "📡 ISP : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )"
+echo   "🌐 Host : $domain"
+echo   "👤 User   : $username"
+echo   "🔑 UUID   : $uuid"
+echo   "🔗 Quota  : $quota GB"
+echo   "🎭 IPLimit: $iplimit"
+echo   "⏳ Expired: $exp_date"
+echo "⚪══════════════════⚪"
+echo   "TLS AVA : $link_tls"
+echo "⚪══════════════════⚪"
+echo   "Link NTLS : $link_ntls"
+echo "⚪══════════════════⚪"
+echo   "TLS SUPPORT : $link_grpc"
+echo "⚪══════════════════⚪"
+echo "===OUTPUT2==="
+echo "$link_tls"
+
