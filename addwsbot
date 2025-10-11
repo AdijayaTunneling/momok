@@ -145,7 +145,8 @@ TRX_MSG="VMESS CREATED SUCCESS
 ✦ BERLAKU : ${exp_days} HARI
 ✦ EXPIRED : Tgl ${exp_date}
 ⚪══════════════════⚪
-#TRX ${TRX_ID}"
+#TRX ${TRX_ID}
+🤖 t.me/adijayavpnpanelbot"
 
 curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
      -d "chat_id=${CHAT_ID_TRX}" \
