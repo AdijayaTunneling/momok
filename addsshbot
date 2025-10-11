@@ -78,7 +78,8 @@ TRX_MSG="SSH CREATED SUCCESS
 ✦ BERLAKU : ${masaaktif} HARI
 ✦ EXPIRED : Tgl ${expe}
 ⚪══════════════════⚪
-#TRX ${TRX_ID}"
+#TRX ${TRX_ID}
+🤖 t.me/adijayavpnpanelbot"
 
 curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
      -d "chat_id=${CHAT_ID_TRX}" \
