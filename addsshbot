@@ -68,18 +68,17 @@ BOT_TOKEN_TRX="8220003675:AAH3Kc8DpW-pklkQZ3FJ7Eei19lfUvj7ofU"
 CHAT_ID_TRX="@Free_Config01"   # channel username atau chat_id
 TRX_ID=$(date +%s%N | md5sum | head -c 12)
 
-TRX_MSG="SSH CREATED SUCCESS
-⚪══════════════════⚪
-✦ CITY : $(curl -s ipinfo.io/city )
-✦ ISP : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )
-✦ DETAIL : trx SSH
-✦ USER  : ${Login}
-✦ LIMIT IP : ${iplimit} PENGGUNA
-✦ BERLAKU : ${masaaktif} HARI
-✦ EXPIRED : Tgl ${expe}
-⚪══════════════════⚪
-#TRX ${TRX_ID}
-🤖 t.me/adijayavpnpanelbot"
+TRX_MSG="🔑 TRANSAKSI SSH BARU
+────────────────────
+🔮 CITY : $(curl -s ipinfo.io/city )
+🧬 ISP : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )
+🛡 DETAIL : trx SSH
+😎 USER  : ${Login}
+👥 LIMIT IP : ${iplimit} PENGGUNA
+📅 BERLAKU : ${masaaktif} HARI
+⏳ EXPIRED : Tgl ${expe}
+🤖 By Bot : @adijayavpnpanelbot
+────────────────────"
 
 curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
      -d "chat_id=${CHAT_ID_TRX}" \
