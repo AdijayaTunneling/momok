@@ -101,3 +101,4 @@ echo "⚪══════════════════⚪"
 echo "===OUTPUT2==="
 echo "${domain}:80@${Login}:${Pass}"
 
+
