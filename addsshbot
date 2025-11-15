@@ -84,21 +84,23 @@ curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
      -d "chat_id=${CHAT_ID_TRX}" \
      -d "text=${TRX_MSG}" >/dev/null
 
-echo "✅ addsshbot: Notifikasi transaksi terkirim. TRX=${TRX_ID} (channel=${CHAT_ID_TRX})"
+#echo "✅ addsshbot: Notifikasi transaksi terkirim. TRX=${TRX_ID} (channel=${CHAT_ID_TRX})"
 
 # --- Output ke WhatsApp (2 pesan) ---
 echo "===OUTPUT1==="
-echo "⚪══════════════════⚪"
-echo   "📡 ISP : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )"
-echo   "🌐 Host  : $domain"
-echo   "👤 User : $Login"
-echo   "🔑 Pass : $Pass"
-echo   "🔗 Port     : 80, 443, 22"
-echo   "🎭 Limit IP : $iplimit"
-echo   "📅 Dibuat   : $hariini"
-echo   "⏳ Expired  : $expe"
-echo "⚪══════════════════⚪"
+echo "══════════════════════"
+echo "✅ TRANSAKSI SSH BERHASIL"
+echo "══════════════════════"
+echo   " ISP : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )"
+echo   " Host  : <code>$domain</code>"
+echo   " User : <code>$Login</code>"
+echo   " Pass : <code>$Pass</code>"
+echo   " Port     : 80, 443, 22"
+echo   " Limit IP : $iplimit"
+echo   " Dibuat   : $hariini"
+echo   " Expired  : $expe"
+echo "<b>SSH CUSTOM :</b> <code>${domain}:80@${Login}:${Pass}</code>"
+echo "══════════════════════"
 echo "===OUTPUT2==="
 echo "${domain}:80@${Login}:${Pass}"
-
 
