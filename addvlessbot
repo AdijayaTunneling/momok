@@ -1,27 +1,119 @@
 #!/bin/bash
-# addvlessbot - wrapper untuk skrip addvless bawaan VPS
+
+# addvlessbot - safe insert vless user (#vless & #vlessgrpc)
 # Usage: addvlessbot <username> <quota_GB> <iplimit> <exp_days>
 
 set -euo pipefail
 
-user=${1:-}
+username_raw=${1:-}
 quota=${2:-0}
 iplimit=${3:-1}
 exp_days=${4:-1}
 
-if [[ -z "$user" ]]; then
-  echo "Usage: $0 <username> <quota_GB> <iplimit> <exp_days>"
-  exit 2
+if [[ -z "$username_raw" ]]; then
+    echo "Usage: $0 <username> <quota_GB> <iplimit> <exp_days>"
+    exit 2
 fi
 
-# jalankan skrip addvless asli (non-interaktif)
-raw=$(printf "%s\n%s\n%s\n" "$user" "$exp_days" "$quota" "$iplimit" | /usr/local/sbin/addvless 2>&1)
+username=$(printf "%s" "$username_raw" | tr -d '"')
+exp_date=$(date -d "$exp_days days" +"%Y-%m-%d" 2>/dev/null || date +"%Y-%m-%d")
+uuid=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
 
-# ambil link TLS (baris pertama yg mulai dengan vless://)
-link=$(echo "$raw" | grep -m1 '^vless://')
+config_file="/etc/xray/config.json"
+
+if [[ ! -f "$config_file" ]]; then
+    echo "ERROR: $config_file tidak ditemukan"
+    exit 3
+fi
+
+bak="${config_file}.bak.$(date +%s)"
+cp -a "$config_file" "$bak" || {
+    echo "ERROR: gagal backup $config_file"
+    exit 4
+}
+
+insert_after_marker_sed() {
+    local marker="$1"
+
+    if ! grep -qF "$marker" "$config_file"; then
+        echo "marker '$marker' tidak ditemukan — skip"
+        return 0
+    fi
+
+    if sed -n "/$marker/,/\]/p" "$config_file" | grep -q "\"email\": \"$username\""; then
+        echo "user '$username' sudah ada di $marker — skip"
+        return 0
+    fi
+
+    sed -i '/'"$marker"'$/a\#& '"$username $exp_date"'\
+},{"id": "'"$uuid"'","email": "'"$username"'"' "$config_file"
+}
+
+# inject ws + grpc
+for m in "#vless" "#vlessgrpc"; do
+    insert_after_marker_sed "$m"
+done
+
+if command -v xray >/dev/null 2>&1; then
+    if ! xray run -test -config "$config_file" >/dev/null 2>&1; then
+        echo "ERROR: config.json invalid -> rollback ke $bak"
+        mv -f "$bak" "$config_file"
+        exit 6
+    fi
+    echo "xray test ok"
+else
+    echo "WARNING: xray binary not found, skip test"
+fi
+
+systemctl restart xray || echo "WARNING: gagal restart xray"
+
+# generate link
+domain=$(cat /etc/xray/domain 2>/dev/null || echo "yourdomain.com")
+port_tls=443
+port_ntls=80
+
+link_tls="vless://${uuid}@${domain}:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&sni=${domain}#${username}"
+link_ntls="vless://${uuid}@${domain}:${port_ntls}?path=/vless&security=none&encryption=none&type=ws#${username}"
+link_bug="vless://${uuid}@support.zoom.us:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&sni=support.zoom.us.${domain}#${username}"
+
+# ==========================
+# Notifikasi Transaksi (Channel)
+# ==========================
+BOT_TOKEN_TRX="8220003675:AAH3Kc8DpW-pklkQZ3FJ7Eei19lfUvj7ofU"
+CHAT_ID_TRX="@adijayavpn"   # channel username atau chat_id
+TRX_ID=$(date +%s%N | md5sum | head -c 12)
+
+TRX_MSG="┏━━━━━━━━❖━━━━━━━━┓
+┃ 🛎️ NEW TRANSACTION
+┗━━━━━━━━❖━━━━━━━━┛
+ 𖤓 LEASEWEB SINGAPORE
+ 𖤓 City : $(curl -s ipinfo.io/city )
+ 𖤓 Name : ${username}
+ 𖤓 Jenis : VLESS
+ 𖤓 Ip Limit : ${iplimit} IP
+ 𖤓 Expired : ${exp_days} Hari
+┏━━━━━━━━❖━━━━━━━━┓
+┃ Bot @adijayavpnpanelbot
+┗━━━━━━━━❖━━━━━━━━┛"
+curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
+     -d "chat_id=${CHAT_ID_TRX}" \
+     -d "text=${TRX_MSG}" >/dev/null
 
 echo "===OUTPUT1==="
-echo "$raw"
+echo "══════════════════════"
+echo "✅  TRANSAKSI VLESS BERHASIL"
+echo "══════════════════════"
+echo "ISP : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )"
+echo "Host : $domain"
+echo "User   : $username"
+echo "UUID   : $uuid"
+echo "Quota  : $quota GB"
+echo "IPLimit: $iplimit"
+echo "Expired: $exp_date"
+echo "══════════════════════"
+echo "<b>LINK VLESS nTLS :</b>"
+echo "<pre>$link_ntls</pre>"
+echo "<b>TLS CONFERENCE :</b>"
+echo "<pre>$link_bug</pre>"
 echo "===OUTPUT2==="
-echo "$link"
-
+echo "<pre>$link_tls</pre>"

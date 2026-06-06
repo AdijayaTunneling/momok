@@ -131,21 +131,21 @@ fi
 # Notifikasi Transaksi (Channel)
 # ==========================
 BOT_TOKEN_TRX="8220003675:AAH3Kc8DpW-pklkQZ3FJ7Eei19lfUvj7ofU"
-CHAT_ID_TRX="@Free_Config01"   # channel username atau chat_id
+CHAT_ID_TRX="@adijayavpn"   # channel username atau chat_id
 TRX_ID=$(date +%s%N | md5sum | head -c 12)
 
-TRX_MSG="🔑 TRANSAKSI SSH BARU
-────────────────────
-🔮 CITY    : $(curl -s ipinfo.io/city )
-🧬 ISP     : $(curl -s ipinfo.io/org | cut -d ' ' -f 2-10 )
-🛡 DETAIL  : trx VMESS
-😎 USER    : ${username}
-👥 LIMIT IP: ${iplimit} PENGGUNA
-📅 BERLAKU : ${exp_days} HARI
-⏳ EXPIRED : Tgl ${exp_date}
-🤖 By Bot : @adijayavpnpanelbot
-────────────────────"
-
+TRX_MSG="┏━━━━━━━━❖━━━━━━━━┓
+┃ 🛎️ NEW TRANSACTION
+┗━━━━━━━━❖━━━━━━━━┛
+ 𖤓 LEASEWEB SINGAPORE
+ 𖤓 City : $(curl -s ipinfo.io/city )
+ 𖤓 Name : ${username}
+ 𖤓 Jenis : VMESS
+ 𖤓 Ip Limit : ${iplimit} IP
+ 𖤓 Expired : ${exp_days} Hari
+┏━━━━━━━━❖━━━━━━━━┓
+┃ Bot @adijayavpnpanelbot
+┗━━━━━━━━❖━━━━━━━━┛"
 curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
      -d "chat_id=${CHAT_ID_TRX}" \
      -d "text=${TRX_MSG}" >/dev/null
