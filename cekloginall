@@ -37,7 +37,8 @@ if [ -e "/var/log/xray/access.log" ]; then
         [ -z "$user" ] && continue
         ips=$(grep -w "email: $user" /var/log/xray/access.log | grep -oP 'from \K\S+' | grep -oP '\d+\.\d+\.\d+\.\d+' | sort -u)
         count=$(echo "$ips" | grep -c . 2>/dev/null || echo 0)
-        [ "$count" -eq 0 ] && continue
+        count=${count%%$'\n'*}
+        [[ "$count" -lt 1 ]] && continue
         ips_csv=$(echo "$ips" | paste -sd ',' 2>/dev/null)
         echo "xray|$user|$ips_csv|$count" >> "$tmpf"
     done

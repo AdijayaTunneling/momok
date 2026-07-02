@@ -258,7 +258,7 @@ switch ($action) {
         break;
 
     case "cekloginall":
-        $out = run_cmd("sudo -n /usr/local/sbin/cekloginall");
+        $out = trim(shell_exec("sudo -n /usr/local/sbin/cekloginall 2>/dev/null") ?? '');
         $result = json_decode($out, true);
         if (is_array($result)) {
             echo json_encode(["status" => "ok", "users" => $result]);
