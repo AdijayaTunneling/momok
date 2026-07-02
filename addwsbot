@@ -222,7 +222,7 @@ echo "<pre>$link_tls_edu</pre>"
 echo "<b>TLS CONFERENCE :</b>"
 echo "<pre>$link_grpc</pre>"
 echo "===OUTPUT2==="
-echo "<b>LINK VMESS TLS :<\b>"
+echo "<b>LINK VMESS TLS :</b>"
 echo "<pre>$link_tls</pre>"
 
 

@@ -68,7 +68,7 @@ echo "<pre>$link_tls_edu</pre>"
 echo "<b>TLS CONFERENCE :</b>"
 echo "<pre>$link_bug</pre>"
 echo "===OUTPUT2==="
-echo "<b>LINK  TLS :<\b>"
+echo "<b>LINK  TLS :</b>"
 echo "<pre>$link_tls</pre>"
 
 BOT_TOKEN_TRX="7631830886:AAE2nvOpCmRe8w_jfSGyhTgrHJsvgKS2ORE"
