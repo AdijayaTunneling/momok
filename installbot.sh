@@ -106,8 +106,8 @@ ${SCRIPTS_DIR}/addvlessbot, \
 ${SCRIPTS_DIR}/addtrbot, \
 ${SCRIPTS_DIR}/trialsshbot, \
 ${SCRIPTS_DIR}/trialwsbot, \
-${SCRIPTS_DIR}/cekloginbot, \
-${SCRIPTS_DIR}/countall.py
+${SCRIPTS_DIR}/countall.py, \
+${SCRIPTS_DIR}/cekloginbot
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 
