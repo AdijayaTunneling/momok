@@ -105,6 +105,15 @@ link_tls="trojan://${uuid}@${domain}:${port_tls}?path=%2Ftrojan-ws&security=tls&
 link_bug="trojan://${uuid}@support.zoom.us:${port_tls}?path=%2Ftrojan-ws&security=tls&host=support.zoom.us.${domain}&type=ws&sni=support.zoom.us.${domain}#${username}"
 
 # ==========================
+# TLS Bug Host tambahan (tidak menyentuh config.json)
+# ==========================
+link_tls_ilped="trojan://${uuid}@api.quipper.com:${port_tls}?path=%2Ftrojan-ws&security=tls&host=api.quipper.com.${domain}&type=ws&sni=api.quipper.com.${domain}#${username}"
+link_tls_gamemax="trojan://${uuid}@ir.huya.com:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${username}"
+link_tls_fun="trojan://${uuid}@creativeservices.netflix.com:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${username}"
+link_tls_iflix="trojan://${uuid}@${domain}:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=live.iflix.com#${username}"
+link_tls_edu="trojan://${uuid}@support.udemy.com:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${username}"
+
+# ==========================
 # Notifikasi Transaksi (Channel)
 # ==========================
 BOT_TOKEN_TRX="8220003675:AAH3Kc8DpW-pklkQZ3FJ7Eei19lfUvj7ofU"
@@ -143,7 +152,20 @@ echo "Quota  : $quota GB"
 echo "IPLimit: $iplimit"
 echo "Expired: $exp_date"
 echo "══════════════════════"
+echo "<b>TLS ILPED :</b>"
+echo "non-aktifkan fitur jagapulsa"
+echo "<pre>$link_tls_ilped</pre>"
+echo "<b>TLS GAMEMAX :</b>"
+echo "<pre>$link_tls_gamemax</pre>"
+echo "<b>TLS IM3 APPS FUN :</b>"
+echo "<pre>$link_tls_fun</pre>"
+echo "<b>TLS IFLIX :</b>"
+echo "<pre>$link_tls_iflix</pre>"
+echo "<b>TLS EDU TIMUR :</b>"
+echo "Khusus selain jabar, jakarta, banten & sumatra"
+echo "<pre>$link_tls_edu</pre>"
 echo "<b>TLS CONFERENCE :</b>"
 echo "<pre>$link_bug</pre>"
 echo "===OUTPUT2==="
+echo "<b>LINK  TLS :<\b>"
 echo "<pre>$link_tls</pre>"

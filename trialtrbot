@@ -43,6 +43,16 @@ port_ntls=80
 link_tls="trojan://${uuid}@${domain}:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
 link_ntls="trojan://${uuid}@${domain}:${port_ntls}?path=%2Ftrojan-ws&security=none&host=${domain}&type=ws#${user}"
 
+# ==========================
+# TLS Bug Host tambahan (tidak menyentuh config.json)
+# ==========================
+link_tls_ilped="trojan://${uuid}@api.quipper.com:${port_tls}?path=%2Ftrojan-ws&security=tls&host=api.quipper.com.${domain}&type=ws&sni=api.quipper.com.${domain}#${user}"
+link_tls_gamemax="trojan://${uuid}@ir.huya.com:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
+link_tls_fun="trojan://${uuid}@creativeservices.netflix.com:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
+link_tls_iflix="trojan://${uuid}@${domain}:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=live.iflix.com#${user}"
+link_tls_edu="trojan://${uuid}@support.udemy.com:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
+link_bug="trojan://${uuid}@support.zoom.us:${port_tls}?path=%2Ftrojan-ws&security=tls&host=support.zoom.us.${domain}&type=ws&sni=support.zoom.us.${domain}#${user}"
+
 echo "tunnel trojan ${user}" | at now + ${minutes} minutes &> /dev/null || true
 
 echo "===OUTPUT1==="
@@ -54,14 +64,27 @@ echo "User   : $user"
 echo "Password : $uuid"
 echo "Expired: ${minutes} Menit"
 echo "══════════════════════"
-echo "<b>LINK TROJAN TLS :</b>"
-echo "<pre>$link_tls</pre>"
 echo "<b>LINK TROJAN nTLS :</b>"
 echo "<pre>$link_ntls</pre>"
+echo "<b>TLS ILPED :</b>"
+echo "non-aktifkan fitur jagapulsa"
+echo "<pre>$link_tls_ilped</pre>"
+echo "<b>TLS GAMEMAX :</b>"
+echo "<pre>$link_tls_gamemax</pre>"
+echo "<b>TLS IM3 APPS FUN :</b>"
+echo "<pre>$link_tls_fun</pre>"
+echo "<b>TLS IFLIX :</b>"
+echo "<pre>$link_tls_iflix</pre>"
+echo "<b>TLS EDU TIMUR :</b>"
+echo "Khusus selain jabar, jakarta, banten & sumatra"
+echo "<pre>$link_tls_edu</pre>"
+echo "<b>TLS CONFERENCE :</b>"
+echo "<pre>$link_bug</pre>"
 echo "===OUTPUT2==="
+echo "<b>LINK  TLS :<\b>"
 echo "<pre>$link_tls</pre>"
 
-BOT_TOKEN_TRX="8220003675:AAH3Kc8DpW-pklkQZ3FJ7Eei19lfUvj7ofU"
+BOT_TOKEN_TRX="7631830886:AAE2nvOpCmRe8w_jfSGyhTgrHJsvgKS2ORE"
 CHAT_ID_TRX="@adijayavpn"
 TRX_MSG="┏━━━━━━━━❖━━━━━━━━┓
 ┃ 🛎️ NEW TRANSACTION
@@ -80,3 +103,4 @@ curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN_TRX}/sendMessage" \
      -d "text=${TRX_MSG}" >/dev/null
 
 exit 0
+
