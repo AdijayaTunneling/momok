@@ -23,23 +23,24 @@ case $protocol in
             exit 1
         fi
 
-        # Dropbear: cari PID yang login dengan username ini
-        dropbear_ips=$(ps aux | grep -i dropbear | awk '{print $2}' | while read pid; do
-            line=$(cat $LOG 2>/dev/null | grep "dropbear\[$pid\]" | grep -i "Password auth succeeded" | grep -w "$username")
+        # Dropbear: hitung child PID yang login (karena IP selalu 127.0.0.1 via HAProxy)
+        dropbear_sessions=$(ps aux | grep -i dropbear | awk '{print $2}' | while read pid; do
+            line=$(cat $LOG 2>/dev/null | grep "dropbear\[$pid\]" | grep -i "Password auth succeeded for '" | grep -w "$username")
             if [ -n "$line" ]; then
-                echo "$line" | awk -F"for " '{print $2}' | awk '{print $3}' | cut -d: -f1
+                echo "session:$pid"
             fi
         done)
 
         # SSHD: cari PID yang login dengan username ini
-        sshd_ips=$(ps aux | grep sshd | grep -v grep | awk '{print $2}' | while read pid; do
+        sshd_sessions=$(ps aux | grep "sshd:" | grep -v grep | awk '{print $2}' | while read pid; do
             line=$(cat $LOG 2>/dev/null | grep "sshd\[$pid\]" | grep -i "Accepted password for" | grep -w "$username")
             if [ -n "$line" ]; then
-                echo "$line" | awk '{print $NF}' | sed 's/\[.*//'
+                ip=$(echo "$line" | awk -F"from " '{print $2}' | awk '{print $1}')
+                echo "$ip"
             fi
         done)
 
-        all_ips=$(echo -e "${dropbear_ips}\n${sshd_ips}" | grep -v '^$' | sort -u)
+        all_ips=$(echo -e "${dropbear_sessions}\n${sshd_sessions}" | grep -v '^$' | sort -u)
         count=$(echo "$all_ips" | grep -c . | tr -d ' ')
         if [ "$count" = "0" ]; then
             ip_list=""

@@ -14,19 +14,22 @@ else LOG=""
 fi
 
 if [ -n "$LOG" ]; then
-    for pid in $(ps aux | grep -i dropbear | awk '{print $2}'); do
-        line=$(grep "dropbear\[$pid\]" "$LOG" 2>/dev/null | grep -i "Password auth succeeded" | tail -1)
+    # Dropbear: each child PID = one concurrent session (IP selalu 127.0.0.1 karena via HAProxy)
+    for pid in $(ps aux | grep -i dropbear | grep -v grep | awk '{print $2}'); do
+        # Skip parent PID (biasanya PID terkecil tanpa user login)
+        line=$(grep "dropbear\[$pid\]" "$LOG" 2>/dev/null | grep -i "Password auth succeeded for '" | tail -1)
         [ -z "$line" ] && continue
         user=$(echo "$line" | sed "s/.*for '//;s/'.*//")
-        ip=$(echo "$line" | awk -F"from " '{print $2}' | awk '{print $1}' | cut -d: -f1)
-        [ -n "$user" ] && [ -n "$ip" ] && echo "ssh|$user|$ip" >> "$tmpf"
+        # Gunakan PID sebagai ID unik (karena IP selalu 127.0.0.1)
+        echo "ssh|$user|pid:$pid" >> "$tmpf"
     done
 
-    for pid in $(ps aux | grep sshd | grep -v grep | awk '{print $2}'); do
+    # SSHD: masih bisa deteksi IP asli
+    for pid in $(ps aux | grep "sshd:" | grep -v grep | awk '{print $2}'); do
         line=$(grep "sshd\[$pid\]" "$LOG" 2>/dev/null | grep -i "Accepted password for" | tail -1)
         [ -z "$line" ] && continue
         user=$(echo "$line" | sed "s/.*for //;s/ from.*//")
-        ip=$(echo "$line" | awk '{print $NF}')
+        ip=$(echo "$line" | awk -F"from " '{print $2}' | awk '{print $1}')
         [ -n "$user" ] && [ -n "$ip" ] && echo "ssh|$user|$ip" >> "$tmpf"
     done
 fi
