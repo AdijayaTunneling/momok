@@ -1,0 +1,66 @@
+#!/bin/bash
+# Cek login untuk bot - output JSON
+# Usage: cekloginbot <username> <protocol>
+# protocol: ssh, vmess, vless, trojan
+
+username=$1
+protocol=$2
+
+if [[ -z "$username" || -z "$protocol" ]]; then
+    echo '{"status":"error","msg":"parameter username dan protocol diperlukan"}'
+    exit 1
+fi
+
+case $protocol in
+    ssh)
+        systemctl reload ssh 2>/dev/null
+        if [ -e "/var/log/auth.log" ]; then
+            LOG="/var/log/auth.log"
+        elif [ -e "/var/log/secure" ]; then
+            LOG="/var/log/secure"
+        else
+            echo '{"status":"error","msg":"log file tidak ditemukan"}'
+            exit 1
+        fi
+
+        # Dropbear: cari PID yang login dengan username ini
+        dropbear_ips=$(ps aux | grep -i dropbear | awk '{print $2}' | while read pid; do
+            line=$(cat $LOG 2>/dev/null | grep "dropbear\[$pid\]" | grep -i "Password auth succeeded" | grep -w "$username")
+            if [ -n "$line" ]; then
+                echo "$line" | awk -F"for " '{print $2}' | awk '{print $3}' | cut -d: -f1
+            fi
+        done)
+
+        # SSHD: cari PID yang login dengan username ini
+        sshd_ips=$(ps aux | grep sshd | grep -v grep | awk '{print $2}' | while read pid; do
+            line=$(cat $LOG 2>/dev/null | grep "sshd\[$pid\]" | grep -i "Accepted password for" | grep -w "$username")
+            if [ -n "$line" ]; then
+                echo "$line" | awk '{print $NF}' | sed 's/\[.*//'
+            fi
+        done)
+
+        all_ips=$(echo -e "${dropbear_ips}\n${sshd_ips}" | grep -v '^$' | sort -u)
+        count=$(echo "$all_ips" | grep -c . | tr -d ' ')
+        if [ "$count" = "0" ]; then
+            ip_list=""
+        else
+            ip_list=$(echo "$all_ips" | paste -sd ',')
+        fi
+
+        echo "{\"status\":\"ok\",\"protocol\":\"ssh\",\"username\":\"$username\",\"unique_ips\":$count,\"ips\":\"$ip_list\"}"
+        ;;
+    vmess|vless|trojan)
+        ips=$(grep -w "email: $username" /var/log/xray/access.log | grep -oP 'from \K\S+' | grep -oP '\d+\.\d+\.\d+\.\d+' | sort -u)
+        count=$(echo "$ips" | grep -c . | tr -d ' ')
+        if [ "$count" = "0" ]; then
+            ip_list=""
+        else
+            ip_list=$(echo "$ips" | paste -sd ',')
+        fi
+        echo "{\"status\":\"ok\",\"protocol\":\"$protocol\",\"username\":\"$username\",\"unique_ips\":$count,\"ips\":\"$ip_list\"}"
+        ;;
+    *)
+        echo "{\"status\":\"error\",\"msg\":\"protocol tidak dikenal: $protocol\"}"
+        exit 1
+        ;;
+esac

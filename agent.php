@@ -211,6 +211,36 @@ switch ($action) {
 
         break;
 
+    case "ceklogin":
+        $username = $payload['username'] ?? '';
+        $protocol = $payload['protocol'] ?? '';
+
+        if (!$username || !$protocol) {
+            echo json_encode([
+                "status" => "error",
+                "msg" => "Username & Protocol wajib"
+            ]);
+            exit;
+        }
+
+        $cmd = sprintf(
+            "sudo -n /usr/local/sbin/cekloginbot %s %s",
+            escapeshellarg($username),
+            escapeshellarg($protocol)
+        );
+
+        $out = run_cmd($cmd);
+        $result = json_decode($out, true);
+        if ($result && isset($result['status'])) {
+            echo json_encode($result);
+        } else {
+            echo json_encode([
+                "status" => "error",
+                "msg" => "Gagal memproses cek login: " . $out
+            ]);
+        }
+        break;
+
     default:
         echo json_encode([
             "status" => "error",

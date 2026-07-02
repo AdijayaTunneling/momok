@@ -9,7 +9,7 @@ IFS=$'\n\t'
 # CONFIG - EDIT HERE
 ######################
 BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/AdijayaTunneling/momok/main/}"   # GitHub Pages CNAME
-FILES=( "agent.php" "addsshbot" "addwsbot" "addvlessbot" "addtrbot" "trialsshbot" "trialwsbot" "countall.py" )
+FILES=( "agent.php" "addsshbot" "addwsbot" "addvlessbot" "addtrbot" "trialsshbot" "trialwsbot" "countall.py" "cekloginbot" )
 WEB_ROOT="${WEB_ROOT:-/var/www/html}"
 SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/sbin}"
 WEB_USER="${WEB_USER:-www-data}"
@@ -106,6 +106,7 @@ ${SCRIPTS_DIR}/addvlessbot, \
 ${SCRIPTS_DIR}/addtrbot, \
 ${SCRIPTS_DIR}/trialsshbot, \
 ${SCRIPTS_DIR}/trialwsbot, \
+${SCRIPTS_DIR}/cekloginbot, \
 ${SCRIPTS_DIR}/countall.py
 EOF
 chmod 0440 "${SUDOERS_FILE}"
