@@ -78,6 +78,23 @@ fi
 #restart xray
 systemctl restart xray || echo "WARNING: gagal restart xray"
 
+# setup quota & ip limit
+mkdir -p /etc/trojan
+if [[ $iplimit -gt 0 ]]; then
+  mkdir -p /etc/kyt/limit/trojan/ip
+  echo "$iplimit" > /etc/kyt/limit/trojan/ip/$username
+fi
+qclean=$(echo "$quota" | sed 's/[^0-9]*//g')
+qbytes=$(( qclean * 1024 * 1024 * 1024 ))
+if [[ $qclean -gt 0 ]]; then
+  echo "$qbytes" > /etc/trojan/$username
+fi
+dbentry=$(grep "^###" /etc/trojan/.trojan.db 2>/dev/null | grep -w "$username" | awk '{print $2}' || true)
+if [[ -n "$dbentry" ]]; then
+  sed -i "/\b$username\b/d" /etc/trojan/.trojan.db
+fi
+echo "### $username $exp_date $uuid $quota $iplimit" >> /etc/trojan/.trojan.db
+
 #==========================
 #Generate Link
 #==========================

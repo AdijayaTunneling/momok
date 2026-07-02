@@ -1,54 +1,62 @@
 #!/bin/bash
-# trialwsbot — Non-interaktif trial VMess WS untuk bot
+# trialtrbot — Non-interaktif trial Trojan WS untuk bot
 set -euo pipefail
 
 domain="$(cat /etc/xray/domain)"
 IP="$(curl -sS ipv4.icanhazip.com)"
 rand=$(shuf -i 1000-9999 -n 1)
-user="${LOGIN_OVERRIDE:-Trial-VM${rand}}"
+user="${LOGIN_OVERRIDE:-Trial-TR${rand}}"
 uuid="$(cat /proc/sys/kernel/random/uuid)"
 masaaktif="${DAYS:-1}"
 minutes="${MINUTES:-15}"
 
 exp="$(date -d "${masaaktif} days" +"%Y-%m-%d")"
-sed -i '/#vmess$/a\### '"$user $exp"'\
-},{"id": "'""$uuid""'","alterId": 0,"email": "'""$user""'"' /etc/xray/config.json
-sed -i '/#vmessgrpc$/a\### '"$user $exp"'\
-},{"id": "'""$uuid""'","alterId": 0,"email": "'""$user""'"' /etc/xray/config.json
+conf="/etc/xray/config.json"
+
+for marker in "#trojanws" "#trojangrpc"; do
+    if ! grep -qF "$marker" "$conf"; then
+        continue
+    fi
+    awk -v marker="$marker" -v comment="#! $user $exp" \
+        -v obj="},{\"password\": \"$uuid\",\"email\": \"$user\"" '
+    {
+        print
+        if ($0 == marker) {
+            print comment
+            print obj
+        }
+    }' "$conf" > "${conf}.tmp"
+    mv "${conf}.tmp" "$conf"
+done
 
 systemctl restart xray > /dev/null 2>&1 || true
 
-mkdir -p /etc/kyt/limit/vmess/ip
-echo "1" > /etc/kyt/limit/vmess/ip/$user
-mkdir -p /etc/vmess
-echo "$((2 * 1024 * 1024 * 1024))" > /etc/vmess/$user
-echo "### $user $exp 2 1" >> /etc/vmess/.vmess.db
+mkdir -p /etc/kyt/limit/trojan/ip
+echo "1" > /etc/kyt/limit/trojan/ip/$user
+mkdir -p /etc/trojan
+echo "$((2 * 1024 * 1024 * 1024))" > /etc/trojan/$user
+echo "### $user $exp 2 1" >> /etc/trojan/.trojan.db
 
 port_tls=443
 port_ntls=80
 
-json_tls=$(printf '{"v":"2","ps":"%s","add":"%s","port":"%s","id":"%s","aid":"0","net":"ws","type":"none","host":"%s","path":"/vmess","tls":"tls"}' \
-  "$user" "$domain" "$port_tls" "$uuid" "$domain" | base64 -w0)
-json_ntls=$(printf '{"v":"2","ps":"%s","add":"%s","port":"%s","id":"%s","aid":"0","net":"ws","type":"none","host":"%s","path":"/vmess","tls":"none"}' \
-  "$user" "$domain" "$port_ntls" "$uuid" "$domain" | base64 -w0)
+link_tls="trojan://${uuid}@${domain}:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
+link_ntls="trojan://${uuid}@${domain}:${port_ntls}?path=%2Ftrojan-ws&security=none&host=${domain}&type=ws#${user}"
 
-link_tls="vmess://$json_tls"
-link_ntls="vmess://$json_ntls"
-
-echo "tunnel vmess ${user}" | at now + ${minutes} minutes &> /dev/null || true
+echo "tunnel trojan ${user}" | at now + ${minutes} minutes &> /dev/null || true
 
 echo "===OUTPUT1==="
 echo "══════════════════════"
-echo "✅ TRIAL VMESS BERHASIL"
+echo "✅ TRIAL TROJAN BERHASIL"
 echo "══════════════════════"
 echo "Host : $domain"
 echo "User   : $user"
-echo "UUID   : $uuid"
+echo "Password : $uuid"
 echo "Expired: ${minutes} Menit"
 echo "══════════════════════"
-echo "<b>LINK VMESS TLS :</b>"
+echo "<b>LINK TROJAN TLS :</b>"
 echo "<pre>$link_tls</pre>"
-echo "<b>LINK VMESS nTLS :</b>"
+echo "<b>LINK TROJAN nTLS :</b>"
 echo "<pre>$link_ntls</pre>"
 echo "===OUTPUT2==="
 echo "<pre>$link_tls</pre>"
@@ -61,7 +69,7 @@ TRX_MSG="┏━━━━━━━━❖━━━━━━━━┓
  𖤓 LEASEWEB SINGAPORE
  𖤓 City : $(curl -s ipinfo.io/city )
  𖤓 Name : ${user}
- 𖤓 Jenis : TRIAL VMESS
+ 𖤓 Jenis : TRIAL TROJAN
  𖤓 Ip Limit : 1 IP
  𖤓 Expired : ${minutes} Menit
 ┏━━━━━━━━❖━━━━━━━━┓

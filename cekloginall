@@ -1,0 +1,72 @@
+#!/bin/bash
+# Scan semua user aktif di VPS ini, output JSON array
+# Usage: cekloginall
+# Output: [{"username":"...","protocol":"ssh|vmess|vless|trojan","unique_ips":N,"ips":"..."}, ...]
+
+tmpf=$(mktemp /tmp/cekloginall.XXXXXX)
+trap "rm -f $tmpf" EXIT
+
+# ── SSH ──
+systemctl reload ssh 2>/dev/null
+if [ -e "/var/log/auth.log" ]; then LOG="/var/log/auth.log"
+elif [ -e "/var/log/secure" ]; then LOG="/var/log/secure"
+else LOG=""
+fi
+
+if [ -n "$LOG" ]; then
+    for pid in $(ps aux | grep -i dropbear | awk '{print $2}'); do
+        line=$(grep "dropbear\[$pid\]" "$LOG" 2>/dev/null | grep -i "Password auth succeeded" | tail -1)
+        [ -z "$line" ] && continue
+        user=$(echo "$line" | sed "s/.*for '//;s/'.*//")
+        ip=$(echo "$line" | awk -F"from " '{print $2}' | awk '{print $1}' | cut -d: -f1)
+        [ -n "$user" ] && [ -n "$ip" ] && echo "ssh|$user|$ip" >> "$tmpf"
+    done
+
+    for pid in $(ps aux | grep sshd | grep -v grep | awk '{print $2}'); do
+        line=$(grep "sshd\[$pid\]" "$LOG" 2>/dev/null | grep -i "Accepted password for" | tail -1)
+        [ -z "$line" ] && continue
+        user=$(echo "$line" | sed "s/.*for //;s/ from.*//")
+        ip=$(echo "$line" | awk '{print $NF}')
+        [ -n "$user" ] && [ -n "$ip" ] && echo "ssh|$user|$ip" >> "$tmpf"
+    done
+fi
+
+# ── XRAY ──
+if [ -e "/var/log/xray/access.log" ]; then
+    grep -oP 'email: \S+' /var/log/xray/access.log | sed 's/email: //' | sort -u | while read user; do
+        [ -z "$user" ] && continue
+        ips=$(grep -w "email: $user" /var/log/xray/access.log | grep -oP 'from \K\S+' | grep -oP '\d+\.\d+\.\d+\.\d+' | sort -u)
+        count=$(echo "$ips" | grep -c . 2>/dev/null || echo 0)
+        [ "$count" -eq 0 ] && continue
+        ips_csv=$(echo "$ips" | paste -sd ',' 2>/dev/null)
+        echo "xray|$user|$ips_csv|$count" >> "$tmpf"
+    done
+fi
+
+# ── JSON via Python ──
+python3 -c "
+import json, sys
+users = {}
+with open('$tmpf') as f:
+    for line in f:
+        parts = line.strip().split('|')
+        if not parts:
+            continue
+        if parts[0] == 'ssh':
+            u, ip = parts[1], parts[2]
+            users.setdefault(u, {}).setdefault('ssh', {}).setdefault('ips', set()).add(ip)
+        elif parts[0] == 'xray':
+            u, ips_str, cnt = parts[1], parts[2], int(parts[3])
+            users.setdefault(u, {})['xray'] = {'ips': ips_str, 'count': cnt}
+
+result = []
+for u, data in users.items():
+    if 'ssh' in data:
+        ips = list(data['ssh']['ips'])
+        result.append({'username': u, 'protocol': 'ssh', 'unique_ips': len(ips), 'ips': ','.join(ips)})
+    if 'xray' in data:
+        d = data['xray']
+        result.append({'username': u, 'protocol': 'vmess', 'unique_ips': d['count'], 'ips': d['ips']})
+
+print(json.dumps(result, indent=2))
+"

@@ -1,194 +1,171 @@
 #!/usr/bin/env bash
-# installbot.sh
-# Deploy agent.php + add* scripts to a VPS target from a GitHub Pages (CNAME) or other HTTPS host.
-
+# installbot.sh — Deploy agent.php + bot scripts to a VPS
 set -euo pipefail
 IFS=$'\n\t'
 
 ######################
-# CONFIG - EDIT HERE
+# CONFIG
 ######################
-BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/AdijayaTunneling/momok/main/}"   # GitHub Pages CNAME
-FILES=( "agent.php" "addsshbot" "addwsbot" "addvlessbot" "addtrbot" "trialsshbot" "trialwsbot" "countall.py" "cekloginbot" )
+BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/AdijayaTunneling/momok/main/}"
+FILES=(
+  agent.php
+  addsshbot addwsbot addvlessbot addtrbot
+  trialsshbot trialwsbot trialvlessbot trialtrbot
+  countall.py cekloginbot cekloginall
+)
 WEB_ROOT="${WEB_ROOT:-/var/www/html}"
 SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/sbin}"
 WEB_USER="${WEB_USER:-www-data}"
 SUDOERS_FILE="/etc/sudoers.d/bot-scripts"
-NGINX_SITE_PATH="/etc/nginx/sites-available/agent_bot"
 LISTEN_ADDR="${LISTEN_ADDR:-0.0.0.0}"
-LISTEN_PORT="${LISTEN_PORT:-8888}"  # default ke 8888
-USE_CHECKSUM="${USE_CHECKSUM:-1}"
-CLEAN_TMP=1
+LISTEN_PORT="${LISTEN_PORT:-8888}"
+CLEAN_TMP="${CLEAN_TMP:-1}"
 
-die(){ echo "ERROR: $*"; exit 1; }
-info(){ echo "[*] $*"; }
+die() { echo "ERROR: $*"; exit 1; }
+info() { echo "[*] $*"; }
 
-# require root
-if [[ "$(id -u)" -ne 0 ]]; then
-  die "Script must be run as root (sudo)."
-fi
+[[ "$(id -u)" -ne 0 ]] && die "Harus root"
 
-TMPDIR="$(mktemp -d -t installbot.XXXXXXXX)" || die "Failed to create tmpdir"
-info "Temp dir: ${TMPDIR}"
+TMPDIR="$(mktemp -d -t installbot.XXXXXXXX)" || die "gagal buat tmpdir"
+trap '[[ "${CLEAN_TMP}" == 1 ]] && rm -rf "${TMPDIR}"' EXIT
+info "Temp: ${TMPDIR}"
 
-info "Using BASE_URL=${BASE_URL}"
-info "Files to fetch: ${FILES[*]}"
-
-# --- Install minimal prerequisites ---
-info "Updating apt and installing prerequisites (nginx, php-fpm, python3, jq, wget, curl)..."
+# ── Prerequisites ──────────────────────────────────────────
+info "Install prerequisites..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y nginx php-fpm php-cli python3 python3-venv python3-pip jq wget curl ca-certificates ufw || true
+apt-get install -y nginx php-fpm php-cli python3 jq wget curl ca-certificates ufw || true
 
-# detect php-fpm service & socket
-detect_php_svc_and_sock(){
+# detect php-fpm
+detect_php() {
   local svc sock
   for s in php8.2-fpm php8.1-fpm php8.0-fpm php7.4-fpm php7.2-fpm php-fpm; do
-    if systemctl list-units --full -all | grep -q "^${s}.service"; then
-      svc="$s"
-      break
-    fi
+    systemctl list-units --full -all | grep -q "^${s}.service" && { svc="$s"; break; }
   done
   svc="${svc:-php7.4-fpm}"
-
-  if [[ -S /run/php/php8.2-fpm.sock ]]; then sock="/run/php/php8.2-fpm.sock"; fi
-  if [[ -S /run/php/php8.1-fpm.sock ]]; then sock="/run/php/php8.1-fpm.sock"; fi
-  if [[ -S /run/php/php8.0-fpm.sock ]]; then sock="/run/php/php8.0-fpm.sock"; fi
-  if [[ -S /run/php/php7.4-fpm.sock ]]; then sock="/run/php/php7.4-fpm.sock"; fi
-  if [[ -z "${sock:-}" ]]; then sock="127.0.0.1:9000"; fi
-
-  echo "${svc}:::${sock}"
+  for s in /run/php/php8.2-fpm.sock /run/php/php8.1-fpm.sock /run/php/php8.0-fpm.sock /run/php/php7.4-fpm.sock; do
+    [[ -S "$s" ]] && { sock="$s"; break; }
+  done
+  echo "${svc}:::${sock:-127.0.0.1:9000}"
 }
+IFS=':::' read -r PHPFPM_SVC PHPFPM_SOCK < <(detect_php)
+info "PHP: ${PHPFPM_SVC} | socket: ${PHPFPM_SOCK}"
 
-read svc_and_sock <<< "$(detect_php_svc_and_sock)"
-PHPFPM_SVC="${svc_and_sock%%::*}"
-PHPFPM_SOCK="${svc_and_sock##*:::}"
-info "Detected PHP-FPM service: ${PHPFPM_SVC}, socket: ${PHPFPM_SOCK}"
-
-# --- Download files ---
-info "Downloading files from ${BASE_URL} ..."
+# ── Download ────────────────────────────────────────────────
+info "Download ${#FILES[@]} files from ${BASE_URL}"
 for f in "${FILES[@]}"; do
-  url="${BASE_URL%/}/${f}"
-  out="${TMPDIR}/${f}"
-  info " - ${url}"
-  if ! wget -q -O "${out}" "${url}"; then
-    die "Failed to download ${url}"
-  fi
-  chmod u+r "${out}"
+  info "  → ${f}"
+  wget -q --timeout=30 -O "${TMPDIR}/${f}" "${BASE_URL%/}/${f}" || die "gagal download ${f}"
+  [[ ! -s "${TMPDIR}/${f}" ]] && die "${f} kosong"
 done
 
-# --- Deploy agent.php ---
-info "Deploying agent.php to ${WEB_ROOT}/agent.php"
+# ── Deploy agent.php ───────────────────────────────────────
+info "Deploy agent.php → ${WEB_ROOT}/agent.php"
 mkdir -p "${WEB_ROOT}"
 cp -f "${TMPDIR}/agent.php" "${WEB_ROOT}/agent.php"
 chown root:"${WEB_USER}" "${WEB_ROOT}/agent.php"
 chmod 0644 "${WEB_ROOT}/agent.php"
+php -l "${WEB_ROOT}/agent.php" || die "agent.php syntax error"
 
-# --- Deploy scripts ---
-info "Deploying scripts to ${SCRIPTS_DIR}"
+# ── Deploy scripts ─────────────────────────────────────────
+info "Deploy scripts → ${SCRIPTS_DIR}"
 mkdir -p "${SCRIPTS_DIR}"
 for f in "${FILES[@]}"; do
-  if [[ "${f}" == "agent.php" ]]; then continue; fi
+  [[ "$f" == "agent.php" ]] && continue
   cp -f "${TMPDIR}/${f}" "${SCRIPTS_DIR}/${f}"
   chown root:root "${SCRIPTS_DIR}/${f}"
   chmod 0750 "${SCRIPTS_DIR}/${f}"
-  info " - installed ${SCRIPTS_DIR}/${f}"
+  # verify shebang & syntax
+  case "$f" in
+    *.py) python3 -c "import py_compile; py_compile.compile('${SCRIPTS_DIR}/${f}', doraise=True)" 2>/dev/null || die "${f} syntax error" ;;
+    *)    bash -n "${SCRIPTS_DIR}/${f}" 2>/dev/null || die "${f} syntax error" ;;
+  esac
+  info "  ✓ ${f}"
 done
 
-# --- Sudoers for web user ---
-info "Writing sudoers file ${SUDOERS_FILE}"
-cat > "${SUDOERS_FILE}" <<EOF
-# Allow web user to run only the specific bot scripts without password
-${WEB_USER} ALL=(ALL) NOPASSWD: \
-${SCRIPTS_DIR}/addsshbot, \
-${SCRIPTS_DIR}/addwsbot, \
-${SCRIPTS_DIR}/addvlessbot, \
-${SCRIPTS_DIR}/addtrbot, \
-${SCRIPTS_DIR}/trialsshbot, \
-${SCRIPTS_DIR}/trialwsbot, \
-${SCRIPTS_DIR}/countall.py, \
-${SCRIPTS_DIR}/cekloginbot
-EOF
+# ── Sudoers (dynamic from FILES) ───────────────────────────
+info "Sudoers → ${SUDOERS_FILE}"
+{
+  echo "# Allow ${WEB_USER} to run bot scripts without password"
+  echo "${WEB_USER} ALL=(ALL) NOPASSWD: \\"
+  # list all non-php files; last entry NO trailing backslash
+  entries=()
+  for f in "${FILES[@]}"; do
+    [[ "$f" == "agent.php" ]] && continue
+    entries+=( "${SCRIPTS_DIR}/${f}" )
+  done
+  for i in "${!entries[@]}"; do
+    if [[ $i -lt $((${#entries[@]} - 1)) ]]; then
+      echo "  ${entries[$i]}, \\"
+    else
+      echo "  ${entries[$i]}"
+    fi
+  done
+} > "${SUDOERS_FILE}"
 chmod 0440 "${SUDOERS_FILE}"
+visudo -c -f "${SUDOERS_FILE}" || die "sudoers syntax error"
 
-# --- Nginx site ---
-info "Creating nginx site at ${NGINX_SITE_PATH} listening ${LISTEN_ADDR}:${LISTEN_PORT}"
-cat > "${NGINX_SITE_PATH}" <<NGINXCONF
+# ── Nginx ──────────────────────────────────────────────────
+NGINX_CONF="/etc/nginx/sites-available/agent_bot"
+info "Nginx → ${NGINX_CONF}"
+cat > "${NGINX_CONF}" <<NGINXEOF
 server {
     listen ${LISTEN_ADDR}:${LISTEN_PORT} default_server;
     listen [::]:${LISTEN_PORT} default_server;
     server_name _;
-
     root ${WEB_ROOT};
     index index.php index.html index.htm;
-
     access_log /var/log/nginx/agent_access.log;
     error_log /var/log/nginx/agent_error.log;
-
-    location / {
-        try_files \$uri \$uri/ =404;
-    }
-
+    location / { try_files \$uri \$uri/ =404; }
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:${PHPFPM_SOCK};
         fastcgi_read_timeout 300s;
     }
 }
-NGINXCONF
-
-ln -sf "${NGINX_SITE_PATH}" /etc/nginx/sites-enabled/agent_bot
-
-# restart services
-info "Restarting ${PHPFPM_SVC} and nginx..."
+NGINXEOF
+ln -sf "${NGINX_CONF}" /etc/nginx/sites-enabled/agent_bot
 systemctl restart "${PHPFPM_SVC}" || true
 systemctl restart nginx || true
 
-# --- Create agent.service (PHP built-in server alternative) ---
-info "Creating systemd service: agent.service (PHP built-in server)"
-cat > /etc/systemd/system/agent.service <<EOF
+# ── agent.service (PHP built-in fallback) ──────────────────
+info "Systemd agent.service"
+cat > /etc/systemd/system/agent.service <<UNIT
 [Unit]
 Description=Agent PHP Service
 After=network.target
-
 [Service]
 ExecStart=/usr/bin/php -S 0.0.0.0:${LISTEN_PORT} -t ${WEB_ROOT}/
 WorkingDirectory=${WEB_ROOT}/
 Restart=always
 User=root
-
 [Install]
 WantedBy=multi-user.target
-EOF
-
+UNIT
 systemctl daemon-reload
 systemctl enable agent
 systemctl restart agent
 
-# open firewall for LISTEN_PORT if ufw active
-if command -v ufw >/dev/null 2>&1; then
-  if ufw status | grep -q "Status: active"; then
-    info "Allowing ${LISTEN_PORT}/tcp through ufw..."
-    ufw allow "${LISTEN_PORT}/tcp" || true
-  fi
-fi
+# ── UFW ────────────────────────────────────────────────────
+command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active" && {
+  ufw allow "${LISTEN_PORT}/tcp" || true
+}
 
-# quick test
-info "Testing agent.php locally (curl http://127.0.0.1:${LISTEN_PORT}/agent.php?action=countall )"
-curl -fsS "http://127.0.0.1:${LISTEN_PORT}/agent.php?action=countall" -o "${TMPDIR}/agent_count.json" || true
-if [[ -s "${TMPDIR}/agent_count.json" ]]; then
-  info "agent.php returned:"
-  sed -n '1,200p' "${TMPDIR}/agent_count.json"
+# ── Test ───────────────────────────────────────────────────
+info "Test agent.php"
+curl -fsS --max-time 5 "http://127.0.0.1:${LISTEN_PORT}/agent.php?action=countall" -o "${TMPDIR}/test.json" || true
+if [[ -s "${TMPDIR}/test.json" ]]; then
+  info "agent.php OK — $(head -c 200 "${TMPDIR}/test.json")"
 else
-  info "agent.php did not return content. Check logs."
+  info "agent.php tidak ada response, cek log"
 fi
 
-# cleanup
-[[ "${CLEAN_TMP}" -eq 1 ]] && rm -rf "${TMPDIR}"
-
-info "Install finished."
-info " - agent.php: http://${HOSTNAME:-127.0.0.1}:${LISTEN_PORT}/agent.php"
-info " - Logs: /var/log/nginx/agent_error.log /var/log/nginx/agent_access.log"
-info " - Service: systemctl status agent"
+# ── Summary ────────────────────────────────────────────────
+info "==== Selesai ===="
+info "  agent.php → http://<ip>:${LISTEN_PORT}/agent.php"
+info "  scripts   → ${SCRIPTS_DIR}/  (${#entries[@]} file)"
+info "  sudoers   → ${SUDOERS_FILE}"
+info "  nginx log → /var/log/nginx/agent_*.log"
+info "  service   → systemctl status agent"
 exit 0
-

@@ -56,7 +56,7 @@ function parse_bot_output($out) {
 switch ($action) {
 
     case "countall":
-        $output = run_cmd("/usr/bin/python3 /usr/local/sbin/countall.py");
+        $output = run_cmd("sudo -n /usr/local/sbin/countall.py");
 
         if (is_numeric($output)) {
             echo json_encode([
@@ -83,6 +83,22 @@ switch ($action) {
         echo json_encode(
             parse_bot_output(
                 run_cmd("sudo -n /usr/local/sbin/trialwsbot")
+            )
+        );
+        break;
+
+    case "trialvless":
+        echo json_encode(
+            parse_bot_output(
+                run_cmd("sudo -n /usr/local/sbin/trialvlessbot")
+            )
+        );
+        break;
+
+    case "trialtrojan":
+        echo json_encode(
+            parse_bot_output(
+                run_cmd("sudo -n /usr/local/sbin/trialtrbot")
             )
         );
         break;
@@ -238,6 +254,16 @@ switch ($action) {
                 "status" => "error",
                 "msg" => "Gagal memproses cek login: " . $out
             ]);
+        }
+        break;
+
+    case "cekloginall":
+        $out = run_cmd("sudo -n /usr/local/sbin/cekloginall");
+        $result = json_decode($out, true);
+        if (is_array($result)) {
+            echo json_encode(["status" => "ok", "users" => $result]);
+        } else {
+            echo json_encode(["status" => "error", "msg" => $out]);
         }
         break;
 

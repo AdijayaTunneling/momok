@@ -66,6 +66,23 @@ fi
 # restart xray
 systemctl restart xray || echo "WARNING: gagal restart xray"
 
+# setup quota & ip limit
+mkdir -p /etc/vmess
+if [[ $iplimit -gt 0 ]]; then
+  mkdir -p /etc/kyt/limit/vmess/ip
+  echo "$iplimit" > /etc/kyt/limit/vmess/ip/$username
+fi
+qclean=$(echo "$quota" | sed 's/[^0-9]*//g')
+qbytes=$(( qclean * 1024 * 1024 * 1024 ))
+if [[ $qclean -gt 0 ]]; then
+  echo "$qbytes" > /etc/vmess/$username
+fi
+dbentry=$(grep "^###" /etc/vmess/.vmess.db 2>/dev/null | grep -w "$username" | awk '{print $2}' || true)
+if [[ -n "$dbentry" ]]; then
+  sed -i "/\b$username\b/d" /etc/vmess/.vmess.db
+fi
+echo "### $username $exp_date $uuid $quota $iplimit" >> /etc/vmess/.vmess.db
+
 # buat link vmess
 domain=$(cat /etc/xray/domain 2>/dev/null || echo "yourdomain.com")
 port_tls=443
