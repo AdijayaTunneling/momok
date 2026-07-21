@@ -122,7 +122,7 @@ json_tls_iflix=$(printf '{"v":"2","ps":"%s-iflix","add":"%s","port":"%s","id":"%
 link_tls_iflix="vmess://$json_tls_iflix"
 
 json_tls_edu=$(printf '{"v":"2","ps":"%s-edu","add":"%s","port":"%s","id":"%s","aid":"0","net":"ws","type":"none","host":"%s","path":"/vmess","tls":"tls","sni":"%s"}' \
-  "$username" "support.udemy.com" "$port_tls" "$uuid" "$domain" "$domain" | base64 -w0)
+  "$username" "104.17.3.81" "$port_tls" "$uuid" "$domain" "$domain" | base64 -w0)
 link_tls_edu="vmess://$json_tls_edu"
 
 # // Get Bot (notif detail akun ke admin)
@@ -216,6 +216,8 @@ echo "<b>TLS IM3 APPS FUN :</b>"
 echo "<pre>$link_tls_fun</pre>"
 echo "<b>TLS IFLIX :</b>"
 echo "<pre>$link_tls_iflix</pre>"
+echo "<b>TLS XL EDU TIMUR :</b>"
+echo "<pre>$link_tls_edu</pre>"
 echo "<b>TLS CONFERENCE :</b>"
 echo "<pre>$link_grpc</pre>"
 echo "===OUTPUT2==="

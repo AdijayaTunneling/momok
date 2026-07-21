@@ -100,7 +100,7 @@ link_tls_ilped="vless://${uuid}@api.quipper.com:${port_tls}?path=/vless&security
 link_tls_gamemax="vless://${uuid}@ir.huya.com:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&host=${domain}&sni=${domain}#${username}"
 link_tls_fun="vless://${uuid}@creativeservices.netflix.com:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&host=${domain}&sni=${domain}#${username}"
 link_tls_iflix="vless://${uuid}@${domain}:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&host=${domain}&sni=live.iflix.com#${username}"
-link_tls_edu="vless://${uuid}@support.udemy.com:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&host=${domain}&sni=${domain}#${username}"
+link_tls_edu="vless://${uuid}@104.17.3.81:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&host=${domain}&sni=${domain}#${username}"
 
 # ==========================
 # Notifikasi Transaksi (Channel)
@@ -148,6 +148,8 @@ echo "<b>TLS IM3 APPS FUN :</b>"
 echo "<pre>$link_tls_fun</pre>"
 echo "<b>TLS IFLIX :</b>"
 echo "<pre>$link_tls_iflix</pre>"
+echo "<b>TLS XL EDU TIMUR :</b>"
+echo "<pre>$link_tls_edu</pre>"
 echo "<b>TLS CONFERENCE :</b>"
 echo "<pre>$link_bug</pre>"
 echo "===OUTPUT2==="
