@@ -1,0 +1,44 @@
+#!/bin/bash
+set -euo pipefail
+
+Login="${1:-}"
+Pass="${2:-}"
+iplimit="${3:-1}"
+masaaktif="${4:-30}"
+
+if [[ -z "$Login" || -z "$Pass" ]]; then
+  echo "Usage: $0 <username> <password> <iplimit> <expired_days>"
+  exit 1
+fi
+
+domain=$(cat /etc/xray/domain 2>/dev/null || hostname -f)
+ns=$(cat /etc/slowdns/domain 2>/dev/null || true)
+pub=$(cat /etc/slowdns/server.pub 2>/dev/null || true)
+dns="1.1.1.1"
+expe=$(date -d "$masaaktif days" +"%Y-%m-%d")
+
+mkdir -p /etc/kyt/limit/ssh/ip /etc/ssh
+echo "$iplimit" > "/etc/kyt/limit/ssh/ip/$Login"
+useradd -e "$expe" -s /bin/false -M "$Login" 2>/dev/null || true
+echo "$Login:$Pass" | chpasswd
+sed -i "/\b${Login}\b/d" /etc/ssh/.ssh.db 2>/dev/null || true
+echo "#ssh# ${Login} ${Pass} 0 ${iplimit} ${expe}" >> /etc/ssh/.ssh.db
+
+echo "===OUTPUT1==="
+echo "══════════════════════"
+echo "✅ TRANSAKSI SLOWDNS BERHASIL"
+echo "══════════════════════"
+echo "Host       : $domain"
+echo "User       : $Login"
+echo "Password   : $Pass"
+echo "NS         : $ns"
+echo "Public Key : $pub"
+echo "DNS        : $dns"
+echo "IP Limit   : $iplimit"
+echo "Expired    : $expe"
+echo "══════════════════════"
+echo "===OUTPUT2==="
+echo "${domain}:22@${Login}:${Pass}"
+echo "ns: ${ns}"
+echo "pubkey: ${pub}"
+echo "dns: ${dns}"

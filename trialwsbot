@@ -62,7 +62,7 @@ json_base_grpc=$(printf '{"v":"2","ps":"%s-tls","add":"%s","port":"%s","id":"%s"
   "$user" "support.zoom.us" "$port_tls" "$uuid" "support.zoom.us.$domain" | base64 -w0)
 link_grpc="vmess://$json_base_grpc"
 
-echo "tunnel vmess ${user}" | at now + ${minutes} minutes &> /dev/null || true
+echo "/usr/local/sbin/trial-cleanup vmess '${user}'" | at now + ${minutes} minutes &> /dev/null || true
 
 echo "===OUTPUT1==="
 echo "══════════════════════"

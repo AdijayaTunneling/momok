@@ -40,7 +40,7 @@ link_tls_iflix="vless://${uuid}@${domain}:${port_tls}?path=/vless&security=tls&e
 link_tls_edu="vless://${uuid}@104.17.3.81:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&host=${domain}&sni=${domain}#${user}"
 link_bug="vless://${uuid}@support.zoom.us:${port_tls}?path=/vless&security=tls&encryption=none&type=ws&host=${domain}&sni=support.zoom.us.${domain}#${user}"
 
-echo "tunnel vless ${user}" | at now + ${minutes} minutes &> /dev/null || true
+echo "/usr/local/sbin/trial-cleanup vless '${user}'" | at now + ${minutes} minutes &> /dev/null || true
 
 echo "===OUTPUT1==="
 echo "══════════════════════"

@@ -13,7 +13,7 @@ masaaktif="${DAYS:-1}"
 useradd -e "$(date -d "${masaaktif} days" +"%Y-%m-%d")" -s /bin/false -M "$Login"
 echo -e "${Pass}\n${Pass}\n" | passwd "$Login" &> /dev/null || true
 
-echo "userdel -f '${Login}'" | at now + ${minutes} minutes &> /dev/null || true
+echo "/usr/local/sbin/trial-cleanup ssh '${Login}'" | at now + ${minutes} minutes &> /dev/null || true
 
 echo "===OUTPUT1==="
 echo "══════════════════════"

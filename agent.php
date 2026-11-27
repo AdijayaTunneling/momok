@@ -134,6 +134,44 @@ switch ($action) {
 
         break;
 
+    case "trialslowdns":
+        $username = $payload['username'] ?? '';
+        $password = $payload['password'] ?? '';
+        $iplimit  = $payload['iplimit'] ?? '1';
+        $exp      = $payload['exp'] ?? '1';
+        if (!$username || !$password) { echo json_encode(["status"=>"error","msg"=>"Username & Password wajib"]); exit; }
+        $cmd = sprintf("sudo -n /usr/local/sbin/trialslowdnsbot %s %s %s %s",
+            escapeshellarg($username), escapeshellarg($password),
+            escapeshellarg($iplimit), escapeshellarg($exp));
+        echo json_encode(parse_bot_output(run_cmd($cmd)));
+        break;
+
+    case "addslowdns":
+
+        $username = $payload['username'] ?? '';
+        $password = $payload['password'] ?? '';
+        $iplimit  = $payload['iplimit'] ?? '1';
+        $exp      = $payload['exp'] ?? '1';
+
+        if (!$username || !$password) {
+            echo json_encode([
+                "status" => "error",
+                "msg" => "Username & Password wajib"
+            ]);
+            exit;
+        }
+
+        $cmd = sprintf(
+            "sudo -n /usr/local/sbin/addslowdnsbot %s %s %s %s",
+            escapeshellarg($username),
+            escapeshellarg($password),
+            escapeshellarg($iplimit),
+            escapeshellarg($exp)
+        );
+
+        echo json_encode(parse_bot_output(run_cmd($cmd)));
+        break;
+
     case "addvmess":
 
         $username = $payload['username'] ?? '';

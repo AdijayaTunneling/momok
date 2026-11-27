@@ -53,7 +53,7 @@ link_tls_iflix="trojan://${uuid}@${domain}:${port_tls}?path=%2Ftrojan-ws&securit
 link_tls_edu="trojan://${uuid}@104.17.3.81:${port_tls}?path=%2Ftrojan-ws&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
 link_bug="trojan://${uuid}@support.zoom.us:${port_tls}?path=%2Ftrojan-ws&security=tls&host=support.zoom.us.${domain}&type=ws&sni=support.zoom.us.${domain}#${user}"
 
-echo "tunnel trojan ${user}" | at now + ${minutes} minutes &> /dev/null || true
+echo "/usr/local/sbin/trial-cleanup trojan '${user}'" | at now + ${minutes} minutes &> /dev/null || true
 
 echo "===OUTPUT1==="
 echo "══════════════════════"

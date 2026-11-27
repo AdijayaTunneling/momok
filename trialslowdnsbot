@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+minutes="${MINUTES:-15}"
+Login="${1:-}"
+if [ -z "$Login" ]; then
+  echo "Usage: $0 <username> <password> <iplimit> <expired_days>"
+  exit 1
+fi
+out="$(/usr/local/sbin/addslowdnsbot "$@")"
+printf '%s\n' "$out" | sed -E 's/^(Expired[[:space:]]*:).*/\1 15 Menit/'
+echo "/usr/local/sbin/trial-cleanup slowdns '${Login}'" | at now + "${minutes}" minutes &> /dev/null || true
