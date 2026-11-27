@@ -62,9 +62,15 @@ detect_php() {
   for s in /run/php/php8.2-fpm.sock /run/php/php8.1-fpm.sock /run/php/php8.0-fpm.sock /run/php/php7.4-fpm.sock; do
     [[ -S "$s" ]] && { sock="$s"; break; }
   done
-  echo "${svc}:::${sock:-127.0.0.1:9000}"
+  printf '%s|%s\n' "${svc}" "${sock:-127.0.0.1:9000}"
 }
-IFS=':::' read -r PHPFPM_SVC PHPFPM_SOCK < <(detect_php)
+IFS='|' read -r PHPFPM_SVC PHPFPM_SOCK < <(detect_php)
+[[ -n "${PHPFPM_SOCK}" ]] || die "socket PHP-FPM tidak ditemukan"
+if [[ "${PHPFPM_SOCK}" == /* ]]; then
+  FASTCGI_TARGET="unix:${PHPFPM_SOCK}"
+else
+  FASTCGI_TARGET="${PHPFPM_SOCK}"
+fi
 info "PHP: ${PHPFPM_SVC} | socket: ${PHPFPM_SOCK}"
 
 # ── Download ────────────────────────────────────────────────
@@ -122,7 +128,7 @@ chmod 0440 "${SUDOERS_FILE}"
 visudo -c -f "${SUDOERS_FILE}" || die "sudoers syntax error"
 
 # ── Nginx ──────────────────────────────────────────────────
-NGINX_CONF="/etc/nginx/sites-available/agent_bot"
+NGINX_CONF="/etc/nginx/conf.d/agent_bot.conf"
 info "Nginx → ${NGINX_CONF}"
 cat > "${NGINX_CONF}" <<NGINXEOF
 server {
@@ -136,32 +142,15 @@ server {
     location / { try_files \$uri \$uri/ =404; }
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:${PHPFPM_SOCK};
+        fastcgi_pass ${FASTCGI_TARGET};
         fastcgi_read_timeout 300s;
     }
 }
 NGINXEOF
-ln -sf "${NGINX_CONF}" /etc/nginx/sites-enabled/agent_bot
+rm -f /etc/nginx/sites-enabled/agent_bot
 systemctl restart "${PHPFPM_SVC}" || true
-systemctl restart nginx || true
-
-# ── agent.service (PHP built-in fallback) ──────────────────
-info "Systemd agent.service"
-cat > /etc/systemd/system/agent.service <<UNIT
-[Unit]
-Description=Agent PHP Service
-After=network.target
-[Service]
-ExecStart=/usr/bin/php -S 0.0.0.0:${LISTEN_PORT} -t ${WEB_ROOT}/
-WorkingDirectory=${WEB_ROOT}/
-Restart=always
-User=root
-[Install]
-WantedBy=multi-user.target
-UNIT
-systemctl daemon-reload
-systemctl enable agent
-systemctl restart agent
+nginx -t || die "config Nginx tidak valid"
+systemctl restart nginx || die "Nginx gagal start"
 
 # ── UFW ────────────────────────────────────────────────────
 command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active" && {
@@ -183,5 +172,4 @@ info "  agent.php → http://<ip>:${LISTEN_PORT}/agent.php"
 info "  scripts   → ${SCRIPTS_DIR}/  (${#entries[@]} file)"
 info "  sudoers   → ${SUDOERS_FILE}"
 info "  nginx log → /var/log/nginx/agent_*.log"
-info "  service   → systemctl status agent"
 exit 0
