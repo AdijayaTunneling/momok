@@ -9,9 +9,25 @@ IFS=$'\n\t'
 BASE_URL="${BASE_URL:-https://raw.githubusercontent.com/AdijayaTunneling/momok/main/}"
 FILES=(
   agent.php
-  addsshbot addwsbot addvlessbot addtrbot
-  trialsshbot trialwsbot trialvlessbot trialtrbot
-  countall.py cekloginbot cekloginall
+
+  # ADD BOT
+  addsshbot
+  addwsbot
+  addvlessbot
+  addtrbot
+  addslowdnsbot
+
+  # TRIAL BOT
+  trialsshbot
+  trialwsbot
+  trialvlessbot
+  trialtrbot
+  trialslowdnsbot
+
+  # UTILITIES
+  countall.py
+  cekloginbot
+  cekloginall
 )
 WEB_ROOT="${WEB_ROOT:-/var/www/html}"
 SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/sbin}"
