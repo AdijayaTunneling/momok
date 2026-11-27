@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# installbot.sh — Deploy agent.php + bot scripts to a VPS
+# Adijaya installbot.sh — Deploy agent.php + bot scripts to a VPS
 set -euo pipefail
 IFS=$'\n\t'
 
